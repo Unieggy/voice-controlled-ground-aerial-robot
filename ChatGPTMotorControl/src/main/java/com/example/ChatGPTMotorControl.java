@@ -14,7 +14,7 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 
 public class ChatGPTMotorControl {
-    private static final String NODE_SERVER_URL = "http://192.168.1.11:3001"; // Replace with your server's IP and Socket.IO port
+    private static final String NODE_SERVER_URL = "http://192.168.1.11:3001"; 
     private static final String OPENAI_API_KEY = "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"; // Replace with your OpenAI API key
 
     public static void main(String[] args) throws URISyntaxException {
