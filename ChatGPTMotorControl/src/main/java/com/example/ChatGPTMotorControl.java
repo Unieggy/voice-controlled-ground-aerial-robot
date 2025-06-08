@@ -15,7 +15,7 @@ import java.util.Arrays;
 public class ChatGPTMotorControl {
     // Updated IP to match your server's address
     private static final String NODE_SERVER_URL = "http://192.168.2.55:3001";
-    private static final String OPENAI_API_KEY = "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"; // Replace with your OpenAI API key
+    private static final String OPENAI_API_KEY = ""; // Replace with your OpenAI API key
 
     public static void main(String[] args) throws URISyntaxException {
         OpenAiService openAiService = new OpenAiService(OPENAI_API_KEY);
