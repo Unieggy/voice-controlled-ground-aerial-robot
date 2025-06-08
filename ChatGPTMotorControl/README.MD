@@ -201,7 +201,4 @@ Yes. Edit the system prompt in the Java client, and update the parsing logic in 
 MIT License © 2025 Michel Lai
 *“Share & derail responsibly.”*
 
-```
 
-✅ You can now paste this directly into your `README.md` file. It’s clean, structured, and includes all numbered sections with correct Markdown headers and indentation. Let me know if you want to include a live demo, badge links, or embed diagrams.
-```
