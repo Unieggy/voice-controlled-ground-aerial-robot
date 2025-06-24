@@ -1,4 +1,4 @@
-# Voice-Controlled Vehicle 🚙🚁  
+# Voice-Controlled Vehicle 
 *(ESP32-S3 • Node.js • Deepgram • ChatGPT • Arduino UNO + TB6612)*
 
 This repo contains **four coordinated codebases** that turn your spoken  
@@ -195,9 +195,3 @@ Yes, just install Node 18+ and Java 17+ with `nvm` and `sdkman`. Make sure your 
 Yes. Edit the system prompt in the Java client, and update the parsing logic in both the Java code and Arduino motor controller.
 
 ---
-
-## License
-
-MIT License © 2025 Michel Lai
-*“Share & derail responsibly.”*
-
