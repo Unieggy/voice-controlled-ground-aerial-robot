@@ -1,6 +1,7 @@
 # Voice-Controlled Vehicle 
 *(ESP32-S3 • Node.js • Deepgram • ChatGPT • Arduino UNO + TB6612)*
 
+![Voice Controlled Vehicle](./robot.jpg)
 This repo contains **four coordinated codebases** that turn your spoken  
 command (“forward”, “hover”, “stop”… ) into real wheels or propellers in ~1 s.
 
