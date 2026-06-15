@@ -41,7 +41,19 @@ cp node-server/.env.example node-server/.env
 DEEPGRAM_API_KEY=your_deepgram_api_key_here
 PORT_HTTP=3000
 PORT_SOCKET=3001
+
+# Text-to-speech (60db) — see https://docs.60db.ai
+TTS_PROVIDER=sixtydb
+SIXTYDB_API_KEY=your_60db_api_key_here
+SIXTYDB_BASE_URL=https://api.60db.ai
+SIXTYDB_WS_URL=wss://api.60db.ai/ws/tts
+SIXTYDB_VOICE_ID=
+SIXTYDB_OUTPUT_FORMAT=mp3
 ```
+
+> The Deepgram key is now read from `.env` (it used to be hard-coded in
+> `server.js`). Copy `.env.example` to `.env` and fill in the real values;
+> `.env` is git-ignored.
 
 For the Java client, export your credentials like so:
 
@@ -91,8 +103,35 @@ node server.js
 
 Runs the following:
 
-* `POST /uploadAudio` on port `3000`
+* `POST /uploadAudio` on port `3000` — WAV in, Deepgram STT, returns motor command
+* `POST /tts` on port `3000` — text in, **60db** audio out (see below)
 * Socket.IO on port `3001`
+
+#### Text-to-speech (`POST /tts`)
+
+Synthesizes speech with **60db** behind a pluggable provider interface
+(`nodejsserver/providers/tts/`). Three transports, selected per request via the
+`transport` field:
+
+| `transport`  | 60db endpoint        | Behaviour                                   |
+| ------------ | -------------------- | ------------------------------------------- |
+| `http` (def) | `POST /tts-synthesize` | One response, full clip                   |
+| `stream`     | `POST /tts-stream`     | Chunked audio streamed as it is generated |
+| `websocket`  | `wss /ws/tts`          | Incremental context, joined and returned  |
+
+```bash
+curl -X POST http://localhost:3000/tts \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Moving forward","transport":"http","outputFormat":"mp3"}' \
+  --output reply.mp3
+```
+
+Optional body fields (all fall back to `.env` defaults): `voiceId`,
+`outputFormat` (`mp3`/`wav`/`ogg`/`flac`), `speed` (0.5–2.0),
+`stability` (0–100), `similarity` (0–100), `enhance` (bool).
+
+Swap providers by adding one to `providers/tts/index.js` and setting
+`TTS_PROVIDER`; the rest of the app is unchanged.
 
 ### 2-B. Java Client
 

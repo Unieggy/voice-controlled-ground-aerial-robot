@@ -1,25 +1,29 @@
 
+require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { createClient } = require("@deepgram/sdk");
+const { getSttProvider } = require('./providers/stt');
+const { getTtsProvider } = require('./providers/tts');
+const { contentTypeFor: contentTypeForFormat } = require('./providers/tts/TtsProvider');
 const networkInterfaces = os.networkInterfaces();
 console.log("Network Interfaces:", networkInterfaces);
 
 const app = express();
 const httpServer = require('http').createServer(app);
-const PORT_HTTP = 3000;
+const PORT_HTTP = Number(process.env.PORT_HTTP) || 3000;
 
-const io = require('socket.io')(3001, {
+const PORT_SOCKET = Number(process.env.PORT_SOCKET) || 3001;
+const io = require('socket.io')(PORT_SOCKET, {
   allowEIO3: true,
   cors: {
     origin: "*"
   }
 });
-const PORT_SOCKET = 3001;
-const deepgramApiKey = "c9abfa13c0abfb368b00350ce4c6d5df47a1fd8a";
-const deepgram = createClient(deepgramApiKey);
+
+// Speech-to-text provider (Deepgram by default; key now read from .env).
+const stt = getSttProvider();
 const UPLOAD_DIR = './uploads';
 
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -32,6 +36,7 @@ app.use(express.raw({
   type: 'audio/wav',
   limit: '10mb'
 }));
+app.use(express.json());
 
 app.post('/uploadAudio', async (req, res) => {
   try {
@@ -89,6 +94,61 @@ app.get('/download/:filename', (req, res) => {
   });
 });
 
+// Text-to-speech via the configured TTS provider (60db by default).
+// POST /tts  { text, transport?, voiceId?, outputFormat?, speed?, stability?, similarity?, enhance? }
+//   transport: "http" (default) | "stream" | "websocket"
+// Responds with raw audio bytes (Content-Type set from the chosen format).
+app.post('/tts', async (req, res) => {
+  try {
+    const { text, transport = 'http', ...opts } = req.body || {};
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      res.status(400).json({ error: 'Body must include a non-empty "text" string' });
+      return;
+    }
+
+    const tts = getTtsProvider();
+    console.log(`TTS request (${tts.name}/${transport}): "${text.slice(0, 60)}"`);
+
+    if (transport === 'stream') {
+      // Stream audio to the client as 60db produces it.
+      let headerSent = false;
+      try {
+        for await (const chunk of tts.synthesizeStream(text, opts)) {
+          if (!headerSent) {
+            res.setHeader('Content-Type', contentTypeForFormat(opts.outputFormat));
+            res.setHeader('Transfer-Encoding', 'chunked');
+            headerSent = true;
+          }
+          res.write(chunk);
+        }
+        if (!headerSent) {
+          res.status(502).json({ error: 'TTS stream produced no audio' });
+          return;
+        }
+        res.end();
+      } catch (err) {
+        if (!headerSent) {
+          res.status(502).json({ error: `TTS streaming failed: ${err.message}` });
+        } else {
+          res.end(); // headers already flushed; just terminate the stream
+        }
+      }
+      return;
+    }
+
+    const result =
+      transport === 'websocket'
+        ? await tts.synthesizeWebSocket(text, opts)
+        : await tts.synthesize(text, opts);
+
+    res.setHeader('Content-Type', result.contentType);
+    res.status(200).send(result.audio);
+  } catch (error) {
+    console.error('TTS error:', error);
+    res.status(500).json({ error: `TTS failed: ${error.message}` });
+  }
+});
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('Client connected via Socket.IO:', socket.id);
@@ -125,34 +185,14 @@ io.on('connection', (socket) => {
   });
 });
 
-// Speech-to-text function using Deepgram
+// Speech-to-text via the configured STT provider (see providers/stt).
 async function speechToText(filePath) {
     const audioBuffer = fs.readFileSync(filePath);
     console.log(`File ${filePath} read successfully, size: ${audioBuffer.length} bytes`);
-    console.log("Sending request to Deepgram API...");
-    const { result, error } = await deepgram.listen.prerecorded.transcribeFile(
-      audioBuffer,
-      { 
-        smart_format: true, 
-        model: 'nova-2', 
-        language: 'en-US' 
-      }
-    );
-    
-    if (error) {
-      console.error('Deepgram transcription error:', error);
-      return '';
-    }
-    if (!error) console.dir(result, {depth: null});
-    console.log('Deepgram Response received');
-    let transcript = '';
-  try {
-    transcript = result.results.channels[0].alternatives[0].transcript;
-  } catch (err) {
-    console.error('Error extracting transcript:', err);
-  }
-  
-  return transcript;
+    console.log(`Sending request to STT provider (${stt.name})...`);
+    const transcript = await stt.transcribe(audioBuffer);
+    console.log('STT response received');
+    return transcript;
 }
 
 // Start the HTTP server for file uploads
